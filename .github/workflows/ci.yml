@@ -75,7 +75,27 @@ jobs:
 
       - name: Verify deployment
         run: |
-          Start-Sleep -Seconds 10
-          docker ps
-          $response = Invoke-WebRequest -Uri "http://localhost:1212/api/hello" -UseBasicParsing
-          Write-Host "Application response: $($response.Content)"
+          $maxAttempts = 18
+
+          for ($attempt = 1; $attempt -le $maxAttempts; $attempt++) {
+            Write-Host "Health check attempt $attempt/$maxAttempts"
+
+            try {
+              $response = Invoke-WebRequest -Uri "http://localhost:1212/api/hello" -UseBasicParsing -TimeoutSec 5
+
+              if ($response.StatusCode -eq 200) {
+                Write-Host "Application is ready!"
+                Write-Host "Application response: $($response.Content)"
+                exit 0
+              }
+            }
+            catch {
+              Write-Host "Application is not ready yet..."
+            }
+
+            Start-Sleep -Seconds 5
+          }
+
+          Write-Host "Application failed to become ready."
+          docker logs github-actions-demo
+          exit 1
